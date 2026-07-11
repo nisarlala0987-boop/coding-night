@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MaintainIQ (React)</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#05050a; --bg2:#0a0a14; --panel:#0d0d1a; --panel2:#12121f; --border:#2a2a45;
+    --text:#e8e8ff; --muted:#7a7a9c;
+    --cyan:#00f0ff; --magenta:#ff00e6; --purple:#9d4edd; --green:#39ff88; --amber:#ffcc00; --red:#ff2d55;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);
+    background-image:
+      linear-gradient(rgba(0,240,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,240,255,0.04) 1px, transparent 1px),
+      radial-gradient(ellipse at 15% -10%, rgba(157,78,221,0.25) 0%, transparent 45%),
+      radial-gradient(ellipse at 100% 0%, rgba(0,240,255,0.15) 0%, transparent 40%);
+    background-size:38px 38px, 38px 38px, 100% 100%, 100% 100%;
+    min-height:100vh;
+  }
+  ::selection{background:var(--magenta);color:#05050a;}
+
+  header{background:rgba(10,10,20,0.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--cyan);box-shadow:0 0 20px rgba(0,240,255,0.25);padding:14px 28px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;}
+  header h1{font-family:'Orbitron',sans-serif;font-size:19px;margin:0;font-weight:800;letter-spacing:1.5px;
+    background:linear-gradient(90deg,var(--cyan),var(--magenta));-webkit-background-clip:text;background-clip:text;color:transparent;
+    text-shadow:0 0 30px rgba(0,240,255,0.3);}
+  header .tagline{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-left:14px;padding-left:14px;border-left:1px solid var(--border);}
+  header nav a{color:var(--muted);text-decoration:none;margin-left:8px;font-size:14px;cursor:pointer;font-weight:600;padding:8px 16px;border-radius:4px;transition:all .2s;border:1px solid transparent;font-family:'Rajdhani',sans-serif;letter-spacing:0.5px;text-transform:uppercase;}
+  header nav a:hover{color:var(--cyan);border-color:var(--cyan);box-shadow:0 0 12px rgba(0,240,255,0.4);}
+
+  main{max-width:1120px;margin:0 auto;padding:28px;}
+  .card{background:rgba(13,13,26,0.75);backdrop-filter:blur(6px);border:1px solid var(--border);border-radius:6px;padding:22px;margin-bottom:20px;position:relative;box-shadow:0 0 0 rgba(0,0,0,0);transition:box-shadow .3s;}
+  .card:hover{box-shadow:0 0 24px rgba(157,78,221,0.12);}
+  .card::before{content:'';position:absolute;top:-1px;left:-1px;right:-1px;height:2px;background:linear-gradient(90deg,var(--cyan),var(--magenta));border-radius:6px 6px 0 0;}
+  .card h3{font-family:'Orbitron',sans-serif;font-size:13px;text-transform:uppercase;letter-spacing:1.5px;color:var(--cyan);margin:0 0 16px 0;font-weight:700;text-shadow:0 0 10px rgba(0,240,255,0.4);}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;}
+
+  input,select,textarea{width:100%;padding:11px 12px;border-radius:4px;border:1px solid var(--border);background:var(--bg2);color:var(--text);margin-top:6px;margin-bottom:14px;font-size:15px;font-family:'Rajdhani',sans-serif;font-weight:500;transition:all .2s;}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 12px rgba(0,240,255,0.35);}
+  label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:700;font-family:'Share Tech Mono',monospace;}
+
+  button{background:linear-gradient(90deg,var(--cyan),var(--purple));color:#05050a;border:none;padding:11px 22px;border-radius:4px;font-weight:700;cursor:pointer;font-size:13px;text-transform:uppercase;letter-spacing:1px;transition:all .2s;font-family:'Rajdhani',sans-serif;box-shadow:0 0 14px rgba(0,240,255,0.35);}
+  button:hover{box-shadow:0 0 24px rgba(255,0,230,0.55);transform:translateY(-1px);}
+  button:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none;}
+
+  .badge{padding:4px 12px;border-radius:3px;font-size:11px;font-weight:700;display:inline-block;font-family:'Share Tech Mono',monospace;text-transform:uppercase;letter-spacing:0.8px;border:1px solid;}
+  .badge.reported{background:rgba(255,45,85,0.1);color:var(--red);border-color:var(--red);box-shadow:0 0 8px rgba(255,45,85,0.3);}
+  .badge.assigned{background:rgba(255,204,0,0.1);color:var(--amber);border-color:var(--amber);box-shadow:0 0 8px rgba(255,204,0,0.3);}
+  .badge.inprogress{background:rgba(0,240,255,0.1);color:var(--cyan);border-color:var(--cyan);box-shadow:0 0 8px rgba(0,240,255,0.3);}
+  .badge.resolved{background:rgba(57,255,136,0.1);color:var(--green);border-color:var(--green);box-shadow:0 0 8px rgba(57,255,136,0.3);}
+
+  .asset-tile{background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:16px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
+  .asset-tile:hover{border-color:var(--magenta);box-shadow:0 0 20px rgba(255,0,230,0.3);transform:translateY(-2px);}
+  .asset-tile h3{margin:0 0 4px 0;font-size:16px;font-family:'Orbitron',sans-serif;font-weight:700;color:var(--text);}
+  .asset-tile p{margin:0;font-size:12px;color:var(--muted);font-family:'Share Tech Mono',monospace;}
+
+  table{width:100%;border-collapse:collapse;font-size:14px;}
+  th,td{padding:12px 10px;text-align:left;border-bottom:1px solid var(--border);}
+  th{color:var(--cyan);font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:1px;font-family:'Share Tech Mono',monospace;}
+  tr:hover td{background:rgba(0,240,255,0.04);}
+
+  .qrbox{background:#fff;padding:10px;border-radius:6px;display:inline-block;box-shadow:0 0 20px rgba(0,240,255,0.5);}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  .muted{color:var(--muted);}
+
+  .issue-item{border-left:3px solid var(--magenta);background:var(--panel2);padding:14px 16px;border-radius:4px;margin-bottom:10px;box-shadow:-4px 0 14px rgba(255,0,230,0.08);}
+  .thumb{width:100%;max-height:180px;object-fit:cover;border-radius:4px;margin-top:8px;border:1px solid var(--border);}
+
+  .stat{background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:18px;text-align:center;transition:all .2s;}
+  .stat:hover{border-color:var(--cyan);box-shadow:0 0 18px rgba(0,240,255,0.25);}
+  .stat .num{font-size:32px;font-weight:800;font-family:'Orbitron',sans-serif;background:linear-gradient(90deg,var(--cyan),var(--magenta));-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .stat .lbl{font-size:10px;color:var(--muted);margin-top:6px;text-transform:uppercase;letter-spacing:1.5px;font-family:'Share Tech Mono',monospace;}
+
+  #setupWarning{background:var(--red);color:white;padding:12px 28px;font-size:13px;font-family:'Share Tech Mono',monospace;box-shadow:0 0 20px rgba(255,45,85,0.5);}
+  a.linklike{color:var(--cyan);cursor:pointer;text-decoration:none;font-weight:600;}
+  a.linklike:hover{color:var(--magenta);text-shadow:0 0 8px rgba(255,0,230,0.6);}
+
+  .id-tag{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--cyan);background:rgba(0,240,255,0.08);border:1px solid rgba(0,240,255,0.4);padding:2px 9px;border-radius:3px;letter-spacing:0.8px;}
+
+  ::-webkit-scrollbar{width:10px;height:10px;}
+  ::-webkit-scrollbar-track{background:var(--bg);}
+  ::-webkit-scrollbar-thumb{background:var(--purple);border-radius:5px;}
+
+  .google-btn {
+    width: 100%;
+    background: #ffffff;
+    color: #444;
+    border: 1px solid #ddd;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-size: 14px;
+    padding: 11px 22px;
+  }
+  .google-btn:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    transform: translateY(-1px);
+    background: #f8f8f8;
+  }
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 16px 0;
+    color: var(--muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .divider hr {
+    flex: 1;
+    border: none;
+    border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<div id="setupWarning" style="display:none;">
+  ⚠️ Firebase config nahi bhara — is file mein <code>firebaseConfig</code> apne Firebase project ki details se replace karo (search "PASTE_YOUR").
+</div>
+
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+/* ================= FIREBASE CONFIG ================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyAo43sXrlQOzKSYE7EXeZBJif5_YCb5lWc",
+  authDomain: "new-app-c75e5.firebaseapp.com",
+  projectId: "new-app-c75e5",
+  storageBucket: "new-app-c75e5.firebasestorage.app",
+  messagingSenderId: "976642760592",
+  appId: "1:976642760592:web:e5699dfe5165f7e73cdd15"
+};
+if(firebaseConfig.apiKey.startsWith("PASTE")){
+  document.getElementById('setupWarning').style.display='block';
+}
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// Build a QR code image URL via a public QR API (no external JS lib needed)
+function getQrUrl(text, size = 120) {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}`;
+}
+
+const CATEGORIES = ["Electrical","Plumbing","Mechanical","HVAC/AC","IT/Network","Civil/Structural","Other"];
+const STATUSES = ["Reported","Assigned","In Progress","Resolved"];
+const statusClass = s => ({"Reported":"reported","Assigned":"assigned","In Progress":"inprogress","Resolved":"resolved"}[s] || "reported");
+const uid = () => 'A' + Math.random().toString(36).substr(2,6).toUpperCase();
+const fmtDate = ts => ts ? new Date(ts.toDate ? ts.toDate() : ts).toLocaleString() : '';
+
+// ---------------- Login / Signup (WITH GOOGLE BUTTON - POPUP) ----------------
+function LoginPage() {
+  const [mode, setMode] = useState('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const signInWithGoogle = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      await auth.signInWithPopup(provider);
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError(''); setLoading(true);
+    try {
+      if (mode === 'signup') {
+        await auth.createUserWithEmailAndPassword(email, password);
+      } else {
+        await auth.signInWithEmailAndPassword(email, password);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: 380, margin: '80px auto' }}>
+      <div className="card">
+        <h3>{mode === 'login' ? 'Staff Login' : 'Create Staff Account'}</h3>
+        {error && <p style={{ color: 'var(--red)', fontSize: 13, background: 'rgba(255,45,85,0.1)', padding: 10, borderRadius: 4 }}>{error}</p>}
+        
+        <form onSubmit={submit}>
+          <label>Email</label>
+          <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
+          <label>Password</label>
+          <input type="password" required minLength={6} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" />
+          <button type="submit" disabled={loading} style={{ width: '100%' }}>
+            {loading ? 'Please wait...' : mode === 'login' ? 'Login' : 'Sign Up'}
+          </button>
+        </form>
+
+        <div className="divider">
+          <hr /><span>OR</span><hr />
+        </div>
+
+        <button 
+          type="button" 
+          onClick={signInWithGoogle} 
+          disabled={loading}
+          className="google-btn"
+        >
+          <svg width="20" height="20" viewBox="0 0 48 48">
+            <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
+            <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
+            <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
+            <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
+          </svg>
+          {loading ? 'Please wait...' : 'Sign in with Google'}
+        </button>
+
+        <p style={{ fontSize: 13, marginTop: 14, textAlign: 'center' }}>
+          {mode === 'login' ? (
+            <>Naya account nahi hai? <a className="linklike" onClick={() => { setMode('signup'); setError(''); }}>Sign up</a></>
+          ) : (
+            <>Pehle se account hai? <a className="linklike" onClick={() => { setMode('login'); setError(''); }}>Login</a></>
+          )}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Header ----------------
+function Header({ setRoute, user }) {
+  return (
+    <header>
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <h1>⚡ MAINTAINIQ</h1>
+        <span className="tagline">Asset Ops // Live Grid</span>
+      </div>
+      <nav>
+        <a onClick={() => setRoute({ page: 'admin' })}>Dashboard</a>
+        <a onClick={() => setRoute({ page: 'assets' })}>Assets</a>
+        {user && <a onClick={() => auth.signOut()}>Logout ({user.email?.split('@')[0] || 'User'})</a>}
+      </nav>
+    </header>
+  );
+}
+
+// ---------------- Admin Dashboard (FAST - Parallel Queries) ----------------
+function AdminPage({ setRoute }) {
+  const [assets, setAssets] = useState({});
+  const [issues, setIssues] = useState([]);
+  const [form, setForm] = useState({ name: '', type: '', location: '' });
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [assetsSnap, issuesSnap] = await Promise.all([
+        db.collection('assets').get(),
+        db.collection('issues').orderBy('reportedAt', 'desc').limit(50).get()
+      ]);
+      
+      const a = {};
+      assetsSnap.forEach(d => a[d.id] = d.data());
+      setAssets(a);
+      setIssues(issuesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (err) {
+      console.error(err);
+      alert('Load fail hua: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const addAsset = async (e) => {
+    e.preventDefault();
+    const id = uid();
+    await db.collection('assets').doc(id).set({
+      ...form,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    setForm({ name: '', type: '', location: '' });
+    load();
+  };
+
+  const updateStatus = async (issueId, status) => {
+    await db.collection('issues').doc(issueId).update({ status, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    load();
+  };
+
+  const updateAssignee = async (issueId, assignedTo) => {
+    await db.collection('issues').doc(issueId).update({ assignedTo, status: assignedTo ? 'Assigned' : 'Reported' });
+    load();
+  };
+
+  if (loading) return <p className="muted">Loading...</p>;
+
+  const total = issues.length;
+  const open = issues.filter(i => i.status !== 'Resolved').length;
+  const resolved = issues.filter(i => i.status === 'Resolved').length;
+
+  const countByAsset = {};
+  issues.forEach(i => countByAsset[i.assetId] = (countByAsset[i.assetId] || 0) + 1);
+  const recurring = Object.entries(countByAsset).filter(([, c]) => c >= 2).sort((a, b) => b[1] - a[1]);
+
+  return (
+    <div>
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: 20 }}>
+        <div className="stat"><div className="num">{Object.keys(assets).length}</div><div className="lbl">Total Assets</div></div>
+        <div className="stat"><div className="num">{total}</div><div className="lbl">Total Issues</div></div>
+        <div className="stat"><div className="num">{open}</div><div className="lbl">Open Issues</div></div>
+        <div className="stat"><div className="num">{resolved}</div><div className="lbl">Resolved</div></div>
+      </div>
+
+      {recurring.length > 0 && (
+        <div className="card">
+          <h3>⚠️ Preventive Recommendations</h3>
+          {recurring.map(([id, c]) => (
+            <p key={id}>🔁 <b>{assets[id]?.name || id}</b> {assets[id]?.location ? `(${assets[id].location})` : ''} — reported <b>{c} times</b>. Consider inspection/replacement.</p>
+          ))}
+        </div>
+      )}
+
+      <div className="card">
+        <h3>➕ Add New Asset</h3>
+        <form onSubmit={addAsset}>
+          <div className="grid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+            <div>
+              <label>Asset Name</label>
+              <input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. AC Unit - Lab 2" />
+            </div>
+            <div>
+              <label>Type</label>
+              <input required value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} placeholder="e.g. HVAC" />
+            </div>
+            <div>
+              <label>Location</label>
+              <input required value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="e.g. Block A, Floor 2" />
+            </div>
+          </div>
+          <button type="submit">Add Asset + Generate QR</button>
+        </form>
+      </div>
+
+      <div className="card">
+        <h3>📋 All Issues</h3>
+        <table>
+          <thead>
+            <tr><th>Asset</th><th>Category</th><th>Description</th><th>Status</th><th>Assigned To</th><th>Reported</th></tr>
+          </thead>
+          <tbody>
+            {issues.length === 0 && <tr><td colSpan="6" className="muted">No issues yet</td></tr>}
+            {issues.map(i => (
+              <tr key={i.id}>
+                <td><a className="linklike" onClick={() => setRoute({ page: 'asset', id: i.assetId })}>{assets[i.assetId]?.name || i.assetId}</a></td>
+                <td>{i.category}</td>
+                <td>{i.description.slice(0, 40)}{i.description.length > 40 ? '...' : ''}</td>
+                <td>
+                  <select value={i.status} onChange={e => updateStatus(i.id, e.target.value)}>
+                    {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </td>
+                <td><input defaultValue={i.assignedTo || ''} placeholder="Technician name" onBlur={e => updateAssignee(i.id, e.target.value)} /></td>
+                <td className="muted">{fmtDate(i.reportedAt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Assets List ----------------
+function AssetsPage({ setRoute }) {
+  const [assets, setAssets] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const snap = await db.collection('assets').get();
+      setAssets(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setLoading(false);
+    })();
+  }, []);
+
+  if (loading) return <p className="muted">Loading...</p>;
+
+  return (
+    <div className="card">
+      <h3>All Assets — Scan or Click</h3>
+      <div className="grid">
+        {assets.length === 0 && <p className="muted">No assets yet. Add one from Admin.</p>}
+        {assets.map(a => (
+          <div key={a.id} className="asset-tile" onClick={() => setRoute({ page: 'asset', id: a.id })}>
+            <h3>{a.name}</h3>
+            <p>{a.type} • {a.location}</p>
+            <span className="id-tag">{a.id}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Public Asset Page (QR CODE FIXED via image API) ----------------
+function AssetPage({ assetId }) {
+  const [asset, setAsset] = useState(null);
+  const [issues, setIssues] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [category, setCategory] = useState(CATEGORIES[0]);
+  const [desc, setDesc] = useState('');
+  const [photo, setPhoto] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const doc = await db.collection('assets').doc(assetId).get();
+      if (doc.exists) setAsset(doc.data());
+      const snap = await db.collection('issues').where('assetId', '==', assetId).get();
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      list.sort((a, b) => {
+        const ta = a.reportedAt?.toMillis ? a.reportedAt.toMillis() : 0;
+        const tb = b.reportedAt?.toMillis ? b.reportedAt.toMillis() : 0;
+        return tb - ta;
+      });
+      setIssues(list);
+    } catch (err) {
+      console.error(err);
+      alert('Load fail hua: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, [assetId]);
+
+  // QR code URL — built via public QR image API, no extra JS library needed
+  const qrUrl = getQrUrl(`${window.location.origin}${window.location.pathname}#/asset/${assetId}`, 120);
+
+  const submitIssue = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      let photoURL = null;
+      if (photo) {
+        photoURL = await fileToBase64(photo);
+      }
+      await db.collection('issues').add({
+        assetId, category, description: desc, photoURL,
+        status: 'Reported', assignedTo: null,
+        reportedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      setDesc(''); setPhoto(null); setCategory(CATEGORIES[0]);
+      await load();
+    } catch (err) {
+      console.error(err);
+      alert('Submit fail hua: ' + err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) return <p className="muted">Loading...</p>;
+  if (!asset) return <p>Asset not found.</p>;
+
+  return (
+    <div>
+      <div className="card">
+        <div className="row" style={{ justifyContent: 'space-between' }}>
+          <div>
+            <h2 style={{ margin: 0 }}>{asset.name}</h2>
+            <p className="muted">{asset.type} • {asset.location} &nbsp; <span className="id-tag">{assetId}</span></p>
+          </div>
+          <div className="qrbox">
+            <img src={qrUrl} width="120" height="120" alt="Asset QR Code" />
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <h3>🚨 Report an Issue</h3>
+        <form onSubmit={submitIssue}>
+          <label>Category</label>
+          <select value={category} onChange={e => setCategory(e.target.value)}>
+            {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+          </select>
+          <label>Description</label>
+          <textarea rows="3" required value={desc} onChange={e => setDesc(e.target.value)} placeholder="Describe the problem..."></textarea>
+          <label>Photo (optional, max 700KB)</label>
+          <input type="file" accept="image/*" onChange={e => {
+            const f = e.target.files[0];
+            if (f && f.size > 700 * 1024) {
+              alert('Photo bahut badi hai (max 700KB). Chhoti photo try karo.');
+              e.target.value = '';
+              setPhoto(null);
+            } else {
+              setPhoto(f);
+            }
+          }} />
+          <button type="submit" disabled={submitting}>{submitting ? 'Submitting...' : 'Submit Report'}</button>
+        </form>
+      </div>
+
+      <div className="card">
+        <h3>📜 Maintenance History ({issues.length})</h3>
+        {issues.length === 0 && <p className="muted">No history yet.</p>}
+        {issues.map(i => (
+          <div key={i.id} className="issue-item">
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <b>{i.category}</b>
+              <span className={`badge ${statusClass(i.status)}`}>{i.status}</span>
+            </div>
+            <p style={{ margin: '6px 0' }}>{i.description}</p>
+            {i.assignedTo && <p className="muted">👤 Assigned: {i.assignedTo}</p>}
+            {i.photoURL && <img src={i.photoURL} className="thumb" />}
+            <p className="muted" style={{ fontSize: 12 }}>{fmtDate(i.reportedAt)}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Root App (hash router) ----------------
+function parseHash() {
+  const h = location.hash.replace('#', '').replace(/^\//, '');
+  const [page, id] = h.split('/');
+  return { page: page || 'admin', id };
+}
+
+function App() {
+  const [route, setRouteState] = useState(parseHash());
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const setRoute = (r) => {
+    location.hash = r.id ? `${r.page}/${r.id}` : r.page;
+  };
+
+  useEffect(() => {
+    const onHashChange = () => setRouteState(parseHash());
+    window.addEventListener('hashchange', onHashChange);
+    
+    const unsub = auth.onAuthStateChanged(u => {
+      setUser(u);
+      setLoading(false);
+    });
+    
+    return () => { 
+      window.removeEventListener('hashchange', onHashChange); 
+      unsub(); 
+    };
+  }, []);
+
+  const isPublicRoute = route.page === 'asset' && route.id;
+
+  if (loading) {
+    return <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Loading...</div>;
+  }
+
+  if (!isPublicRoute && !user) {
+    return (
+      <React.Fragment>
+        <Header setRoute={setRoute} user={null} />
+        <main><LoginPage /></main>
+      </React.Fragment>
+    );
+  }
+
+  return (
+    <React.Fragment>
+      <Header setRoute={setRoute} user={user} />
+      <main>
+        {route.page === 'admin' && <AdminPage setRoute={setRoute} />}
+        {route.page === 'assets' && <AssetsPage setRoute={setRoute} />}
+        {route.page === 'asset' && route.id && <AssetPage assetId={route.id} />}
+      </main>
+    </React.Fragment>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
