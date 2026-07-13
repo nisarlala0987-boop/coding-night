@@ -189,11 +189,6 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 
-// Enable offline cache -> repeat visits load instantly from local cache
-try {
-  db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
-} catch (e) {}
-
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -393,25 +388,40 @@ function AdminPage({ setRoute, user }) {
     e.preventDefault();
     if (!user) return requireLogin();
     const id = uid();
-    await db.collection('assets').doc(id).set({
-      ...form,
-      ownerId: user.uid,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    setForm({ name: '', type: '', location: '' });
-    load();
+    try {
+      await db.collection('assets').doc(id).set({
+        ...form,
+        ownerId: user.uid,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      setForm({ name: '', type: '', location: '' });
+      await load();
+    } catch (err) {
+      console.error('MaintainIQ add asset error:', err);
+      alert('Could not add asset: ' + (err.message || 'please try again.'));
+    }
   };
 
   const updateStatus = async (issueId, status) => {
     if (!user) return requireLogin();
-    await db.collection('issues').doc(issueId).update({ status, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-    load();
+    try {
+      await db.collection('issues').doc(issueId).update({ status, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      await load();
+    } catch (err) {
+      console.error('MaintainIQ update status error:', err);
+      alert('Could not update status: ' + (err.message || 'please try again.'));
+    }
   };
 
   const updateAssignee = async (issueId, assignedTo) => {
     if (!user) return requireLogin();
-    await db.collection('issues').doc(issueId).update({ assignedTo, status: assignedTo ? 'Assigned' : 'Reported' });
-    load();
+    try {
+      await db.collection('issues').doc(issueId).update({ assignedTo, status: assignedTo ? 'Assigned' : 'Reported' });
+      await load();
+    } catch (err) {
+      console.error('MaintainIQ update assignee error:', err);
+      alert('Could not update assignee: ' + (err.message || 'please try again.'));
+    }
   };
 
   if (loading) return <p className="muted">Loading...</p>;
