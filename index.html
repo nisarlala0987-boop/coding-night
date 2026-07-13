@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MaintainIQ (React)</title>
+<link rel="preconnect" href="https://www.gstatic.com">
+<link rel="preconnect" href="https://unpkg.com">
+<link rel="preconnect" href="https://firestore.googleapis.com">
+<link rel="preconnect" href="https://identitytoolkit.googleapis.com">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -13,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
-  :root{     
+  :root{
     --bg:#05050a; --bg2:#0a0a14; --panel:#0d0d1a; --panel2:#12121f; --border:#2a2a45;
     --text:#e8e8ff; --muted:#7a7a9c;
     --cyan:#00f0ff; --magenta:#ff00e6; --purple:#9d4edd; --green:#39ff88; --amber:#ffcc00; --red:#ff2d55;
@@ -125,12 +129,15 @@
     border: none;
     border-top: 1px solid var(--border);
   }
+  .lockNotice{background:rgba(0,240,255,0.06);border:1px solid var(--cyan);border-radius:6px;padding:14px 18px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+  .lockNotice p{margin:0;font-size:14px;color:var(--text);}
+  .lockNotice button{padding:9px 18px;font-size:12px;}
 </style>
 </head>
 <body>
 
 <div id="setupWarning" style="display:none;">
-  ⚠️ Firebase config nahi bhara — is file mein <code>firebaseConfig</code> apne Firebase project ki details se replace karo (search "PASTE_YOUR").
+  ⚠️ Firebase config not filled in — replace <code>firebaseConfig</code> in this file with your Firebase project details (search "PASTE_YOUR").
 </div>
 
 <div id="root"></div>
@@ -153,6 +160,11 @@ if(firebaseConfig.apiKey.startsWith("PASTE")){
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
+
+// Enable offline cache -> repeat visits load instantly from local cache
+try {
+  db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+} catch (e) {}
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -215,7 +227,7 @@ function LoginPage() {
       <div className="card">
         <h3>{mode === 'login' ? 'Staff Login' : 'Create Staff Account'}</h3>
         {error && <p style={{ color: 'var(--red)', fontSize: 13, background: 'rgba(255,45,85,0.1)', padding: 10, borderRadius: 4 }}>{error}</p>}
-        
+
         <form onSubmit={submit}>
           <label>Email</label>
           <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
@@ -230,9 +242,9 @@ function LoginPage() {
           <hr /><span>OR</span><hr />
         </div>
 
-        <button 
-          type="button" 
-          onClick={signInWithGoogle} 
+        <button
+          type="button"
+          onClick={signInWithGoogle}
           disabled={loading}
           className="google-btn"
         >
@@ -247,22 +259,19 @@ function LoginPage() {
 
         <p style={{ fontSize: 13, marginTop: 14, textAlign: 'center' }}>
           {mode === 'login' ? (
-            <>Naya account nahi hai? <a className="linklike" onClick={() => { setMode('signup'); setError(''); }}>Sign up</a></>
+            <>Don't have an account? <a className="linklike" onClick={() => { setMode('signup'); setError(''); }}>Sign up</a></>
           ) : (
-            <>Pehle se account hai? <a className="linklike" onClick={() => { setMode('login'); setError(''); }}>Login</a></>
+            <>Already have an account?<a className="linklike" onClick={() => { setMode('login'); setError(''); }}>Login</a></>
           )}
         </p>
       </div>
     </div>
   );
 }
-// jijijii
-// jijijii
-// jijijii
+
 // ---------------- Header ----------------
 function Header({ setRoute, user }) {
   return (
-    
     <header>
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <h1>⚡ MAINTAINIQ</h1>
@@ -271,46 +280,64 @@ function Header({ setRoute, user }) {
       <nav>
         <a onClick={() => setRoute({ page: 'admin' })}>Dashboard</a>
         <a onClick={() => setRoute({ page: 'assets' })}>Assets</a>
-        {user && <a onClick={() => auth.signOut()}>Logout ({user.email?.split('@')[0] || 'User'})</a>}
+        {user ? (
+          <a onClick={() => auth.signOut()}>Logout ({user.email?.split('@')[0] || 'User'})</a>
+        ) : (
+          <a onClick={() => setRoute({ page: 'login' })}>Login / Sign Up</a>
+        )}
       </nav>
     </header>
   );
 }
 
-// ---------------- Admin Dashboard (FAST - Parallel Queries) ----------------
-function AdminPage({ setRoute }) {
+// ---------------- Login-required banner shown on locked sections ----------------
+function LockNotice({ setRoute, text }) {
+  return (
+    <div className="lockNotice">
+      <p>🔒 {text || 'Log in to manage your data.'}</p>
+      <button onClick={() => setRoute({ page: 'login' })}>Login / Sign Up</button>
+    </div>
+  );
+}
+
+// ---------------- Admin Dashboard (FAST - Parallel Queries, scoped to owner) ----------------
+function AdminPage({ setRoute, user }) {
   const [assets, setAssets] = useState({});
   const [issues, setIssues] = useState([]);
   const [form, setForm] = useState({ name: '', type: '', location: '' });
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
+    if (!user) { setAssets({}); setIssues([]); setLoading(false); return; }
     setLoading(true);
     try {
       const [assetsSnap, issuesSnap] = await Promise.all([
-        db.collection('assets').get(),
-        db.collection('issues').orderBy('reportedAt', 'desc').limit(50).get()
+        db.collection('assets').where('ownerId', '==', user.uid).get(),
+        db.collection('issues').where('ownerId', '==', user.uid).orderBy('reportedAt', 'desc').limit(50).get()
       ]);
-      
+
       const a = {};
       assetsSnap.forEach(d => a[d.id] = d.data());
       setAssets(a);
       setIssues(issuesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (err) {
-      console.error(err);
-      alert('Load fail hua: ' + err.message);
+      console.error('MaintainIQ dashboard load error:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [user && user.uid]);
+
+  const requireLogin = () => { setRoute({ page: 'login' }); };
 
   const addAsset = async (e) => {
     e.preventDefault();
+    if (!user) return requireLogin();
     const id = uid();
     await db.collection('assets').doc(id).set({
       ...form,
+      ownerId: user.uid,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     setForm({ name: '', type: '', location: '' });
@@ -318,11 +345,13 @@ function AdminPage({ setRoute }) {
   };
 
   const updateStatus = async (issueId, status) => {
+    if (!user) return requireLogin();
     await db.collection('issues').doc(issueId).update({ status, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
     load();
   };
 
   const updateAssignee = async (issueId, assignedTo) => {
+    if (!user) return requireLogin();
     await db.collection('issues').doc(issueId).update({ assignedTo, status: assignedTo ? 'Assigned' : 'Reported' });
     load();
   };
@@ -339,6 +368,8 @@ function AdminPage({ setRoute }) {
 
   return (
     <div>
+      {!user && <LockNotice setRoute={setRoute} text="This is a demo view — log in to see and manage your own data." />}
+
       <div className="grid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: 20 }}>
         <div className="stat"><div className="num">{Object.keys(assets).length}</div><div className="lbl">Total Assets</div></div>
         <div className="stat"><div className="num">{total}</div><div className="lbl">Total Issues</div></div>
@@ -372,7 +403,7 @@ function AdminPage({ setRoute }) {
               <input required value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="e.g. Block A, Floor 2" />
             </div>
           </div>
-          <button type="submit">Add Asset + Generate QR</button>
+          <button type="submit">{user ? 'Add Asset + Generate QR' : 'Login to Add Asset'}</button>
         </form>
       </div>
 
@@ -383,7 +414,7 @@ function AdminPage({ setRoute }) {
             <tr><th>Asset</th><th>Category</th><th>Description</th><th>Status</th><th>Assigned To</th><th>Reported</th></tr>
           </thead>
           <tbody>
-            {issues.length === 0 && <tr><td colSpan="6" className="muted">No issues yet</td></tr>}
+            {issues.length === 0 && <tr><td colSpan="6" className="muted">{user ? 'No issues yet' : 'Login to see your issues'}</td></tr>}
             {issues.map(i => (
               <tr key={i.id}>
                 <td><a className="linklike" onClick={() => setRoute({ page: 'asset', id: i.assetId })}>{assets[i.assetId]?.name || i.assetId}</a></td>
@@ -405,39 +436,44 @@ function AdminPage({ setRoute }) {
   );
 }
 
-// ---------------- Assets List ----------------
-function AssetsPage({ setRoute }) {
+// ---------------- Assets List (scoped to owner) ----------------
+function AssetsPage({ setRoute, user }) {
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!user) { setAssets([]); setLoading(false); return; }
     (async () => {
-      const snap = await db.collection('assets').get();
+      setLoading(true);
+      const snap = await db.collection('assets').where('ownerId', '==', user.uid).get();
       setAssets(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setLoading(false);
     })();
-  }, []);
+  }, [user && user.uid]);
 
   if (loading) return <p className="muted">Loading...</p>;
 
   return (
-    <div className="card">
-      <h3>All Assets — Scan or Click</h3>
-      <div className="grid">
-        {assets.length === 0 && <p className="muted">No assets yet. Add one from Admin.</p>}
-        {assets.map(a => (
-          <div key={a.id} className="asset-tile" onClick={() => setRoute({ page: 'asset', id: a.id })}>
-            <h3>{a.name}</h3>
-            <p>{a.type} • {a.location}</p>
-            <span className="id-tag">{a.id}</span>
-          </div>
-        ))}
+    <div>
+      {!user && <LockNotice setRoute={setRoute} text="Log in to see your assets." />}
+      <div className="card">
+        <h3>All Assets — Scan or Click</h3>
+        <div className="grid">
+          {assets.length === 0 && <p className="muted">{user ? 'No assets yet. Add one from Admin.' : 'Log in to see your assets here.'}</p>}
+          {assets.map(a => (
+            <div key={a.id} className="asset-tile" onClick={() => setRoute({ page: 'asset', id: a.id })}>
+              <h3>{a.name}</h3>
+              <p>{a.type} • {a.location}</p>
+              <span className="id-tag">{a.id}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
-// ---------------- Public Asset Page (QR CODE FIXED via image API) ----------------
+// ---------------- Public Asset Page (open to anyone who scans the QR) ----------------
 function AssetPage({ assetId }) {
   const [asset, setAsset] = useState(null);
   const [issues, setIssues] = useState([]);
@@ -450,9 +486,12 @@ function AssetPage({ assetId }) {
   const load = async () => {
     setLoading(true);
     try {
-      const doc = await db.collection('assets').doc(assetId).get();
+      // fetch asset + its issues in parallel instead of one-after-another
+      const [doc, snap] = await Promise.all([
+        db.collection('assets').doc(assetId).get(),
+        db.collection('issues').where('assetId', '==', assetId).get()
+      ]);
       if (doc.exists) setAsset(doc.data());
-      const snap = await db.collection('issues').where('assetId', '==', assetId).get();
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       list.sort((a, b) => {
         const ta = a.reportedAt?.toMillis ? a.reportedAt.toMillis() : 0;
@@ -461,8 +500,7 @@ function AssetPage({ assetId }) {
       });
       setIssues(list);
     } catch (err) {
-      console.error(err);
-      alert('Load fail hua: ' + err.message);
+      console.error('MaintainIQ asset load error:', err);
     } finally {
       setLoading(false);
     }
@@ -484,13 +522,14 @@ function AssetPage({ assetId }) {
       await db.collection('issues').add({
         assetId, category, description: desc, photoURL,
         status: 'Reported', assignedTo: null,
+        ownerId: asset?.ownerId || null,
         reportedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
       setDesc(''); setPhoto(null); setCategory(CATEGORIES[0]);
       await load();
     } catch (err) {
-      console.error(err);
-      alert('Submit fail hua: ' + err.message);
+      console.error('MaintainIQ issue submit error:', err);
+      alert('Something went wrong submitting your report. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -526,7 +565,7 @@ function AssetPage({ assetId }) {
           <input type="file" accept="image/*" onChange={e => {
             const f = e.target.files[0];
             if (f && f.size > 700 * 1024) {
-              alert('Photo bahut badi hai (max 700KB). Chhoti photo try karo.');
+              alert('Photo too large (max 700KB). Try a smaller photo.');
               e.target.value = '';
               setPhoto(null);
             } else {
@@ -576,39 +615,33 @@ function App() {
   useEffect(() => {
     const onHashChange = () => setRouteState(parseHash());
     window.addEventListener('hashchange', onHashChange);
-    
+
     const unsub = auth.onAuthStateChanged(u => {
       setUser(u);
       setLoading(false);
+      // once logged in, bounce off the login screen back to dashboard
+      if (u && parseHash().page === 'login') {
+        location.hash = 'admin';
+      }
     });
-    
-    return () => { 
-      window.removeEventListener('hashchange', onHashChange); 
-      unsub(); 
+
+    return () => {
+      window.removeEventListener('hashchange', onHashChange);
+      unsub();
     };
   }, []);
 
-  const isPublicRoute = route.page === 'asset' && route.id;
-
   if (loading) {
     return <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Loading...</div>;
-  }
-
-  if (!isPublicRoute && !user) {
-    return (
-      <React.Fragment>
-        <Header setRoute={setRoute} user={null} />
-        <main><LoginPage /></main>
-      </React.Fragment>
-    );
   }
 
   return (
     <React.Fragment>
       <Header setRoute={setRoute} user={user} />
       <main>
-        {route.page === 'admin' && <AdminPage setRoute={setRoute} />}
-        {route.page === 'assets' && <AssetsPage setRoute={setRoute} />}
+        {route.page === 'login' && <LoginPage />}
+        {route.page === 'admin' && <AdminPage setRoute={setRoute} user={user} />}
+        {route.page === 'assets' && <AssetsPage setRoute={setRoute} user={user} />}
         {route.page === 'asset' && route.id && <AssetPage assetId={route.id} />}
       </main>
     </React.Fragment>
