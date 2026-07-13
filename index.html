@@ -132,6 +132,34 @@
   .lockNotice{background:rgba(0,240,255,0.06);border:1px solid var(--cyan);border-radius:6px;padding:14px 18px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
   .lockNotice p{margin:0;font-size:14px;color:var(--text);}
   .lockNotice button{padding:9px 18px;font-size:12px;}
+
+  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .table-wrap table{min-width:640px;}
+
+  /* ===== Mobile responsive ===== */
+  @media (max-width: 768px){
+    header{padding:12px 16px;flex-wrap:wrap;gap:8px;}
+    header h1{font-size:16px;}
+    header .tagline{display:none;}
+    header nav{display:flex;flex-wrap:wrap;gap:4px;width:100%;justify-content:flex-start;}
+    header nav a{margin-left:0;padding:7px 12px;font-size:12px;}
+    main{padding:16px;}
+    .card{padding:16px;}
+    .stats-grid{grid-template-columns:repeat(2,1fr);}
+    .form-grid{grid-template-columns:1fr;}
+    .stat .num{font-size:24px;}
+    .grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));}
+    .row{flex-direction:column;align-items:flex-start;}
+    .qrbox{align-self:center;}
+  }
+  @media (max-width: 420px){
+    header h1{font-size:14px;}
+    .stats-grid{grid-template-columns:1fr 1fr;}
+    main{padding:10px;}
+    .card{padding:14px;}
+  }
 </style>
 </head>
 <body>
@@ -186,6 +214,34 @@ const statusClass = s => ({"Reported":"reported","Assigned":"assigned","In Progr
 const uid = () => 'A' + Math.random().toString(36).substr(2,6).toUpperCase();
 const fmtDate = ts => ts ? new Date(ts.toDate ? ts.toDate() : ts).toLocaleString() : '';
 
+// Convert raw Firebase Auth error codes into clear, user-friendly messages
+function authErrorMessage(err, mode) {
+  const code = err && err.code;
+  switch (code) {
+    case 'auth/email-already-in-use':
+      return 'This email is already signed up. Please log in instead.';
+    case 'auth/user-not-found':
+      return "No account found with this email. Please sign up first.";
+    case 'auth/wrong-password':
+      return 'Incorrect password. Please try again.';
+    case 'auth/invalid-credential':
+    case 'auth/invalid-login-credentials':
+      return mode === 'signup'
+        ? 'Something went wrong creating your account. Please check your details.'
+        : "Incorrect email or password, or this email isn't signed up yet.";
+    case 'auth/invalid-email':
+      return 'Please enter a valid email address.';
+    case 'auth/weak-password':
+      return 'Password should be at least 6 characters.';
+    case 'auth/too-many-requests':
+      return 'Too many attempts. Please wait a moment and try again.';
+    case 'auth/popup-closed-by-user':
+      return 'Google sign-in was closed before finishing.';
+    default:
+      return 'Something went wrong. Please try again.';
+  }
+}
+
 // ---------------- Login / Signup (WITH GOOGLE BUTTON - POPUP) ----------------
 function LoginPage() {
   const [mode, setMode] = useState('login');
@@ -201,7 +257,8 @@ function LoginPage() {
       const provider = new firebase.auth.GoogleAuthProvider();
       await auth.signInWithPopup(provider);
     } catch (err) {
-      setError(err.message);
+      console.error('Google sign-in error:', err);
+      setError(authErrorMessage(err, 'login'));
       setLoading(false);
     }
   };
@@ -216,14 +273,15 @@ function LoginPage() {
         await auth.signInWithEmailAndPassword(email, password);
       }
     } catch (err) {
-      setError(err.message);
+      console.error('Auth error:', err);
+      setError(authErrorMessage(err, mode));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ maxWidth: 380, margin: '80px auto' }}>
+    <div style={{ maxWidth: 380, width: '100%', margin: '40px auto', padding: '0 12px' }}>
       <div className="card">
         <h3>{mode === 'login' ? 'Staff Login' : 'Create Staff Account'}</h3>
         {error && <p style={{ color: 'var(--red)', fontSize: 13, background: 'rgba(255,45,85,0.1)', padding: 10, borderRadius: 4 }}>{error}</p>}
@@ -370,7 +428,7 @@ function AdminPage({ setRoute, user }) {
     <div>
       {!user && <LockNotice setRoute={setRoute} text="This is a demo view — log in to see and manage your own data." />}
 
-      <div className="grid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: 20 }}>
+      <div className="stats-grid" style={{ marginBottom: 20 }}>
         <div className="stat"><div className="num">{Object.keys(assets).length}</div><div className="lbl">Total Assets</div></div>
         <div className="stat"><div className="num">{total}</div><div className="lbl">Total Issues</div></div>
         <div className="stat"><div className="num">{open}</div><div className="lbl">Open Issues</div></div>
@@ -389,7 +447,7 @@ function AdminPage({ setRoute, user }) {
       <div className="card">
         <h3>➕ Add New Asset</h3>
         <form onSubmit={addAsset}>
-          <div className="grid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+          <div className="form-grid">
             <div>
               <label>Asset Name</label>
               <input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. AC Unit - Lab 2" />
@@ -409,6 +467,7 @@ function AdminPage({ setRoute, user }) {
 
       <div className="card">
         <h3>📋 All Issues</h3>
+        <div className="table-wrap">
         <table>
           <thead>
             <tr><th>Asset</th><th>Category</th><th>Description</th><th>Status</th><th>Assigned To</th><th>Reported</th></tr>
@@ -431,6 +490,7 @@ function AdminPage({ setRoute, user }) {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
