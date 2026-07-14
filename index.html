@@ -364,15 +364,25 @@ function AdminPage({ setRoute, user }) {
     if (!user) { setAssets({}); setIssues([]); setLoading(false); return; }
     setLoading(true);
     try {
+      // NOTE: orderBy() hata diya hai taake Firestore composite-index error se
+      // poora Promise.all fail na ho. Sorting ab neeche client-side (JS mein) ho rahi hai.
       const [assetsSnap, issuesSnap] = await Promise.all([
         db.collection('assets').where('ownerId', '==', user.uid).get(),
-        db.collection('issues').where('ownerId', '==', user.uid).orderBy('reportedAt', 'desc').limit(50).get()
+        db.collection('issues').where('ownerId', '==', user.uid).limit(50).get()
       ]);
 
       const a = {};
       assetsSnap.forEach(d => a[d.id] = d.data());
       setAssets(a);
-      setIssues(issuesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+
+      const issuesList = issuesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // Newest first — client-side sort instead of Firestore orderBy
+      issuesList.sort((x, y) => {
+        const tx = x.reportedAt?.toMillis ? x.reportedAt.toMillis() : 0;
+        const ty = y.reportedAt?.toMillis ? y.reportedAt.toMillis() : 0;
+        return ty - tx;
+      });
+      setIssues(issuesList);
     } catch (err) {
       console.error('MaintainIQ dashboard load error:', err);
     } finally {
